@@ -6,6 +6,7 @@ from .resources.admin import (
     AdminLoginResource,
     AdminLogoutResource,
     AdminRefreshResource,
+    AdminCurrentUserResource,
     DashboardStatsResource,
     PostListResource,
     PostDetailResource,
@@ -26,9 +27,10 @@ api.add_resource(UserLogoutAPI, '/user/logout')
 api.add_resource(UserListApi, '/user/list')
 
 # 管理端接口
-api.add_resource(AdminLoginResource, '/admin/login')
-api.add_resource(AdminLogoutResource, '/admin/logout')
-api.add_resource(AdminRefreshResource, '/admin/refresh')
+api.add_resource(AdminLoginResource, '/admin/auth/login')
+api.add_resource(AdminLogoutResource, '/admin/auth/logout')
+api.add_resource(AdminRefreshResource, '/admin/auth/refresh')
+api.add_resource(AdminCurrentUserResource, '/admin/auth/current')
 api.add_resource(DashboardStatsResource, '/admin/dashboard/stats')
 api.add_resource(PostListResource, '/admin/posts')
 api.add_resource(PostDetailResource, '/admin/posts/<string:post_id>')

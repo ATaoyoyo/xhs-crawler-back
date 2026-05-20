@@ -46,7 +46,7 @@ def download_file(url, save_dir):
 def transform_webp_png(img_path):
     try:
         img = Image.open(img_path)
-        img.save(f'{img_path.replace('.webp', '')}.png')
+        img.save(f"{img_path.replace('.webp', '')}.png")
         log.success(f'转换成功: {img_path}')
     except Exception as e:
         log.error(f'转换失败: {str(e)}')

@@ -68,6 +68,20 @@ class AdminRefreshResource(Resource):
         return send_success({'accessToken': 'Bearer ' + access_token})
 
 
+class AdminCurrentUserResource(Resource):
+    @jwt_required()
+    def get(self):
+        username = get_jwt_identity()
+        admin = AdminUserModel.find_by_username(username)
+        if not admin:
+            return send_error('用户不存在')
+        return send_success({
+            'id': admin.id,
+            'username': admin.username,
+            'role': admin.role
+        })
+
+
 class DashboardStatsResource(Resource):
     @jwt_required()
     def get(self):

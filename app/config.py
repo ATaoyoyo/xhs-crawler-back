@@ -29,7 +29,7 @@ class Config(object):
         USERNAME,
         PASSWORD,
         HOSTNAME,
-        PORT,
+        PORT if PORT and PORT != 'None' else 3306,
         DATABASE
     )
     SQLALCHEMY_ECHO = True
@@ -49,7 +49,7 @@ class ProductionConfig(Config):
         USERNAME,
         PASSWORD,
         HOSTNAME,
-        PORT,
+        PORT if PORT and PORT != 'None' else 3306,
         DATABASE
     )
 
