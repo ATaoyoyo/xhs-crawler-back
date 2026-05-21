@@ -169,6 +169,8 @@ class PostListResource(Resource):
         parser.add_argument('pageSize', type=int, default=20, location='args')
         parser.add_argument('keyword', type=str, default='', location='args')
         parser.add_argument('category', type=str, default='', location='args')
+        parser.add_argument('author', type=str, default='', location='args')
+        parser.add_argument('tag', type=str, default='', location='args')
         parser.add_argument('startDate', type=str, default='', location='args')
         parser.add_argument('endDate', type=str, default='', location='args')
         args = parser.parse_args()
@@ -187,6 +189,35 @@ class PostListResource(Resource):
 
             if args['category']:
                 query = query.filter(PostDetailModel.post_category == args['category'])
+
+            if args['author']:
+                author_keyword = f'%{args["author"]}%'
+                matched_users = PostUserModel.query.filter(
+                    db.or_(
+                        PostUserModel.user_name.like(author_keyword),
+                        PostUserModel.user_id.like(author_keyword)
+                    )
+                ).all()
+                author_ids = [u.user_id for u in matched_users]
+                if author_ids:
+                    query = query.filter(PostDetailModel.post_author_id.in_(author_ids))
+                else:
+                    query = query.filter(db.false())
+
+            if args['tag']:
+                tag_keyword = f'%{args["tag"]}%'
+                matched_tags = PostTagModel.query.filter(
+                    PostTagModel.tag_name.like(tag_keyword)
+                ).all()
+                tag_ids = [t.tag_id for t in matched_tags]
+                if tag_ids:
+                    matched_post_ids = db.session.query(PostDetailTagModel.post_id).filter(
+                        PostDetailTagModel.tag_id.in_(tag_ids)
+                    ).distinct().all()
+                    post_ids_filter = [p.post_id for p in matched_post_ids]
+                    query = query.filter(PostDetailModel.post_id.in_(post_ids_filter))
+                else:
+                    query = query.filter(db.false())
 
             if args['startDate']:
                 start = datetime.strptime(args['startDate'], '%Y-%m-%d')
