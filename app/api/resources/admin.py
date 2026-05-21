@@ -8,6 +8,7 @@ from ..models.revoked_token import RevokedTokenModel
 from ..models.post_detail import PostDetailModel
 from ..models.post_interact import PostInteractModel
 from ..models.post_tag import PostTagModel
+from ..models.post_user import PostUserModel
 from ..models.user import UserModel
 from ..models import db
 
@@ -196,14 +197,23 @@ class PostListResource(Resource):
             items = []
             for post in posts:
                 interact = PostInteractModel.find_by_post_id(post.post_id)
+                post_user = PostUserModel.find_by_user_id(post.post_author_id)
+                tag_ids = post.post_tags_id.split(',') if post.post_tags_id else []
+                tags = []
+                for tag_id in tag_ids:
+                    tag = PostTagModel.find_by_tag_id(tag_id.strip())
+                    if tag:
+                        tags.append(tag.dict())
                 items.append({
                     'id': post.id,
                     'postId': post.post_id,
                     'title': post.post_title,
-                    'authorName': post.post_author_id,
+                    'authorName': post_user.user_name if post_user else post.post_author_id,
+                    'authorAvatar': post_user.user_avatar if post_user else None,
                     'ip': post.post_ip,
                     'likedCount': interact.liked_count if interact else '0',
                     'collectedCount': interact.collected_count if interact else '0',
+                    'tags': tags,
                     'downloadTime': datetime.strftime(post.created_at, '%Y-%m-%d %H:%M:%S'),
                 })
 
@@ -228,6 +238,13 @@ class PostDetailResource(Resource):
             interact = PostInteractModel.find_by_post_id(post_id)
             from ..models.post_media import PostMediaModel
             media = PostMediaModel.find_by_post_id(post_id)
+            post_user = PostUserModel.find_by_user_id(post.post_author_id)
+            tag_ids = post.post_tags_id.split(',') if post.post_tags_id else []
+            tags = []
+            for tag_id in tag_ids:
+                tag = PostTagModel.find_by_tag_id(tag_id.strip())
+                if tag:
+                    tags.append(tag.dict())
 
             data = {
                 'id': post.id,
@@ -236,11 +253,14 @@ class PostDetailResource(Resource):
                 'content': post.post_content,
                 'shareUrl': post.post_share_url,
                 'authorId': post.post_author_id,
+                'authorName': post_user.user_name if post_user else None,
+                'authorAvatar': post_user.user_avatar if post_user else None,
                 'category': post.post_category,
                 'ip': post.post_ip,
                 'likedCount': interact.liked_count if interact else '0',
                 'collectedCount': interact.collected_count if interact else '0',
                 'media': media.dict() if media else None,
+                'tags': tags,
                 'createdAt': datetime.strftime(post.created_at, '%Y-%m-%d %H:%M:%S'),
             }
             return send_success(data)
