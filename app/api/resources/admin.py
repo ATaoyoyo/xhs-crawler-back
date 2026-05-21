@@ -11,6 +11,7 @@ from ..models.post_tag import PostTagModel
 from ..models.post_user import PostUserModel
 from ..models.user import UserModel
 from ..models import db
+from ..models.post_detail_tag import PostDetailTagModel
 
 from ..response import send_success, send_error, send_server_error
 
@@ -98,23 +99,29 @@ class DashboardStatsResource(Resource):
             week_start = datetime.combine(week_ago, datetime.min.time())
             month_start = datetime.combine(month_ago, datetime.min.time())
 
-            today_downloads = PostInteractModel.query.filter(
-                PostInteractModel.post_id.in_(
-                    db.session.query(PostDetailModel.post_id).filter(PostDetailModel.created_at >= today_start)
-                )
-            ).count()
+            today_downloads = db.session.query(
+                db.func.count(db.distinct(PostInteractModel.post_id))
+            ).join(
+                PostDetailModel, PostDetailModel.post_id == PostInteractModel.post_id
+            ).filter(
+                PostDetailModel.created_at >= today_start
+            ).scalar()
 
-            week_downloads = PostInteractModel.query.filter(
-                PostInteractModel.post_id.in_(
-                    db.session.query(PostDetailModel.post_id).filter(PostDetailModel.created_at >= week_start)
-                )
-            ).count()
+            week_downloads = db.session.query(
+                db.func.count(db.distinct(PostInteractModel.post_id))
+            ).join(
+                PostDetailModel, PostDetailModel.post_id == PostInteractModel.post_id
+            ).filter(
+                PostDetailModel.created_at >= week_start
+            ).scalar()
 
-            month_downloads = PostInteractModel.query.filter(
-                PostInteractModel.post_id.in_(
-                    db.session.query(PostDetailModel.post_id).filter(PostDetailModel.created_at >= month_start)
-                )
-            ).count()
+            month_downloads = db.session.query(
+                db.func.count(db.distinct(PostInteractModel.post_id))
+            ).join(
+                PostDetailModel, PostDetailModel.post_id == PostInteractModel.post_id
+            ).filter(
+                PostDetailModel.created_at >= month_start
+            ).scalar()
 
             posts_7days = db.session.query(
                 db.func.date(PostDetailModel.created_at).label('date'),
@@ -131,8 +138,8 @@ class DashboardStatsResource(Resource):
                 PostTagModel.tag_name,
                 db.func.count().label('count')
             ).join(
-                PostDetailModel,
-                PostDetailModel.post_tags_id.contains(PostTagModel.tag_id)
+                PostDetailTagModel,
+                PostDetailTagModel.tag_id == PostTagModel.tag_id
             ).group_by(
                 PostTagModel.tag_name
             ).order_by(
@@ -194,16 +201,38 @@ class PostListResource(Resource):
                 (args['page'] - 1) * args['pageSize']
             ).limit(args['pageSize']).all()
 
+            # 批量查询，避免 N+1 问题
+            post_ids = [post.post_id for post in posts]
+            author_ids = [post.post_author_id for post in posts]
+            all_tag_ids = []
+            for post in posts:
+                if post.post_tags_id:
+                    all_tag_ids.extend([tid.strip() for tid in post.post_tags_id.split(',')])
+
+            # 批量获取 interact 数据
+            interact_map = {}
+            if post_ids:
+                interacts = PostInteractModel.query.filter(PostInteractModel.post_id.in_(post_ids)).all()
+                interact_map = {i.post_id: i for i in interacts}
+
+            # 批量获取 user 数据
+            user_map = {}
+            if author_ids:
+                users = PostUserModel.query.filter(PostUserModel.user_id.in_(author_ids)).all()
+                user_map = {u.user_id: u for u in users}
+
+            # 批量获取 tag 数据
+            tag_map = {}
+            if all_tag_ids:
+                tags = PostTagModel.query.filter(PostTagModel.tag_id.in_(all_tag_ids)).all()
+                tag_map = {t.tag_id: t for t in tags}
+
             items = []
             for post in posts:
-                interact = PostInteractModel.find_by_post_id(post.post_id)
-                post_user = PostUserModel.find_by_user_id(post.post_author_id)
+                interact = interact_map.get(post.post_id)
+                post_user = user_map.get(post.post_author_id)
                 tag_ids = post.post_tags_id.split(',') if post.post_tags_id else []
-                tags = []
-                for tag_id in tag_ids:
-                    tag = PostTagModel.find_by_tag_id(tag_id.strip())
-                    if tag:
-                        tags.append(tag.dict())
+                tags = [tag_map[tid.strip()].dict() for tid in tag_ids if tid.strip() in tag_map]
                 items.append({
                     'id': post.id,
                     'postId': post.post_id,

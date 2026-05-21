@@ -6,6 +6,7 @@ from app.api.models.post_media import PostMediaModel
 from app.api.models.post_tag import PostTagModel
 from app.api.models.post_interact import PostInteractModel
 from app.api.models.post_user import PostUserModel
+from app.api.models.post_detail_tag import PostDetailTagModel
 from app.utils.logger import log
 from app.utils.download import download_media
 
@@ -125,6 +126,7 @@ class PostDatabasePipeline:
         log.info('开始保存数据')
         post_id = item.get('post_detail').get('post_id')
         exits = PostDetailModel.get_post_by_post_id(post_id)
+        tag_ids = [tag.get('tag_id') for tag in item.get('post_tag')]
 
         if exits:
             log.info('笔记已经存在')
@@ -136,6 +138,8 @@ class PostDatabasePipeline:
             exits.update(**item.get('post_detail'))
             media.update(**item.get('post_media'))
             interact.update(**item.get('post_interact'))
+
+            self._sync_post_tags(post_id, tag_ids)
 
             log.success(f'笔记 {exits.post_title} 更新完毕!')
         else:
@@ -154,5 +158,15 @@ class PostDatabasePipeline:
                 else:
                     PostTagModel.add(**tag)
 
+            for tag_id in tag_ids:
+                PostDetailTagModel.add(post_id=post_id, tag_id=tag_id)
+            db.session.commit()
+
             log.info('保存完成')
         return item.get('post_id')
+
+    def _sync_post_tags(self, post_id, tag_ids):
+        PostDetailTagModel.delete_by_post_id(post_id)
+        for tag_id in tag_ids:
+            PostDetailTagModel.add(post_id=post_id, tag_id=tag_id)
+        db.session.commit()
