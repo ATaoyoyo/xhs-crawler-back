@@ -11,6 +11,11 @@ from .resources.admin import (
     PostListResource,
     PostDetailResource,
     UserListResource,
+    AdminUserCreateAPI,
+    AdminUserListAPI,
+    AdminUserDetailAPI,
+    AdminUserUpdateAPI,
+    AdminUserDeleteAPI,
 )
 
 api_blueprint = Blueprint('api', __name__, url_prefix='/api')
@@ -35,3 +40,10 @@ api.add_resource(DashboardStatsResource, '/admin/dashboard/stats')
 api.add_resource(PostListResource, '/admin/posts')
 api.add_resource(PostDetailResource, '/admin/posts/<string:post_id>')
 api.add_resource(UserListResource, '/admin/users')
+
+# 管理员账号管理接口
+api.add_resource(AdminUserCreateAPI, '/admin/account')
+api.add_resource(AdminUserListAPI, '/admin/accounts')
+api.add_resource(AdminUserDetailAPI, '/admin/accounts/<int:admin_id>')
+api.add_resource(AdminUserUpdateAPI, '/admin/accounts/<int:admin_id>')
+api.add_resource(AdminUserDeleteAPI, '/admin/accounts/<int:admin_id>')

@@ -380,3 +380,126 @@ class UserListResource(Resource):
             })
         except Exception as e:
             return send_server_error(str(e))
+
+
+class AdminUserCreateAPI(Resource):
+    @jwt_required()
+    def post(self):
+        parser = reqparse.RequestParser()
+        parser.add_argument('username', type=str, required=True, location='json')
+        parser.add_argument('password', type=str, required=True, location='json')
+        parser.add_argument('role', type=str, default='admin', location='json')
+        args = parser.parse_args()
+
+        try:
+            if AdminUserModel.find_by_username(args['username']):
+                return send_error('用户名已存在')
+
+            salt = uuid.uuid4().hex
+            password = generate_password_hash('{}{}'.format(salt, args['password']))
+            admin = AdminUserModel(
+                username=args['username'],
+                password=password,
+                salt=salt,
+                role=args['role'],
+            )
+            admin.add()
+            return send_success({'id': admin.id, 'username': admin.username}, '管理员创建成功')
+        except Exception as e:
+            return send_server_error(str(e))
+
+
+class AdminUserListAPI(Resource):
+    @jwt_required()
+    def get(self):
+        parser = reqparse.RequestParser()
+        parser.add_argument('page', type=int, default=1, location='args')
+        parser.add_argument('pageSize', type=int, default=20, location='args')
+        parser.add_argument('keyword', type=str, default='', location='args')
+        args = parser.parse_args()
+
+        try:
+            query = AdminUserModel.query
+
+            if args['keyword']:
+                keyword = f'%{args["keyword"]}%'
+                query = query.filter(AdminUserModel.username.like(keyword))
+
+            total = query.count()
+            admins = query.order_by(AdminUserModel.created_at.desc()).offset(
+                (args['page'] - 1) * args['pageSize']
+            ).limit(args['pageSize']).all()
+
+            items = [admin.dict() for admin in admins]
+
+            return send_success({
+                'items': items,
+                'total': total,
+                'page': args['page'],
+                'pageSize': args['pageSize'],
+            })
+        except Exception as e:
+            return send_server_error(str(e))
+
+
+class AdminUserDetailAPI(Resource):
+    @jwt_required()
+    def get(self, admin_id):
+        try:
+            admin = AdminUserModel.find_by_id(admin_id)
+            if not admin:
+                return send_error('管理员不存在')
+            return send_success(admin.dict())
+        except Exception as e:
+            return send_server_error(str(e))
+
+
+class AdminUserUpdateAPI(Resource):
+    @jwt_required()
+    def put(self, admin_id):
+        parser = reqparse.RequestParser()
+        parser.add_argument('password', type=str, location='json')
+        parser.add_argument('role', type=str, location='json')
+        parser.add_argument('is_active', type=bool, location='json')
+        args = parser.parse_args()
+
+        try:
+            admin = AdminUserModel.find_by_id(admin_id)
+            if not admin:
+                return send_error('管理员不存在')
+
+            update_data = {}
+            if args['password']:
+                salt = uuid.uuid4().hex
+                update_data['salt'] = salt
+                update_data['password'] = generate_password_hash('{}{}'.format(salt, args['password']))
+            if args['role']:
+                update_data['role'] = args['role']
+            if args['is_active'] is not None:
+                update_data['is_active'] = args['is_active']
+
+            if update_data:
+                admin.update(**update_data)
+
+            return send_success(admin.dict(), '管理员更新成功')
+        except Exception as e:
+            return send_server_error(str(e))
+
+
+class AdminUserDeleteAPI(Resource):
+    @jwt_required()
+    def delete(self, admin_id):
+        try:
+            admin = AdminUserModel.find_by_id(admin_id)
+            if not admin:
+                return send_error('管理员不存在')
+
+            current_username = get_jwt_identity()
+            if admin.username == current_username:
+                return send_error('不能删除当前登录的管理员')
+
+            db.session.delete(admin)
+            db.session.commit()
+            return send_success('管理员删除成功')
+        except Exception as e:
+            return send_server_error(str(e))
