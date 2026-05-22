@@ -42,6 +42,8 @@ class AdminUserModel(db.Model):
         }
 
     def verify_password(self, input_password):
+        # input_password 是前端传来的 SHA256(明文密码)
+        # 数据库存储格式: hash(salt + SHA256(明文密码))
         return check_password_hash(self.password, '{}{}'.format(self.salt, input_password))
 
     @classmethod

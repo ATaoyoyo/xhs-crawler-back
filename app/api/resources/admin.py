@@ -1,5 +1,6 @@
 import uuid
 from flask_restful import Resource, reqparse
+from werkzeug.security import generate_password_hash
 from flask_jwt_extended import create_access_token, create_refresh_token, jwt_required, get_jwt_identity, get_jwt
 from datetime import datetime
 
@@ -53,7 +54,7 @@ class AdminLoginResource(Resource):
 class AdminLogoutResource(Resource):
     @jwt_required()
     def post(self):
-        jti = get_jwt()
+        jti = get_jwt()['jti']
         try:
             revoked_token = RevokedTokenModel(jti=jti)
             revoked_token.add()
@@ -495,8 +496,23 @@ class AdminUserDeleteAPI(Resource):
                 return send_error('管理员不存在')
 
             current_username = get_jwt_identity()
+            current_admin = AdminUserModel.find_by_username(current_username)
+
+            # 不能删除自己
             if admin.username == current_username:
                 return send_error('不能删除当前登录的管理员')
+
+            # 普通管理员不能删除超级管理员
+            if current_admin.role != 'super' and admin.role == 'super':
+                return send_error('权限不足，无法删除超级管理员')
+
+            # 不能删除同级别角色
+            if current_admin.role == admin.role:
+                return send_error('不能删除同级别管理员')
+
+            # 不能删除超级管理员
+            if admin.role == 'super':
+                return send_error('不能删除超级管理员')
 
             db.session.delete(admin)
             db.session.commit()
