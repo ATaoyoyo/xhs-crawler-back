@@ -1,3 +1,4 @@
+from flask import request
 from flask_restful import Resource, reqparse
 from app.spider.scheduler import spider_scheduler
 from app.utils.logger import log
@@ -7,6 +8,7 @@ from ..models.post_media import PostMediaModel
 from ..models.post_tag import PostTagModel
 from ..models.post_user import PostUserModel
 from ..models.post_interact import PostInteractModel
+from ..models.spider_log import SpiderLogModel
 
 from ..response import send_success, send_error, send_server_error
 
@@ -18,12 +20,31 @@ class SpiderListAPI(Resource):
         parser.add_argument('content', type=str, location='json')
         args = parser.parse_args()
 
+        client_type = request.headers.get('X-Client-Type', 'unknown')
+        request_ip = request.remote_addr
+        request_url = args.get('content', '')
+
         try:
             if not args['content']:
                 log.warning('SpiderListAPI POST 参数错误')
+                SpiderLogModel.add(
+                    client_type=client_type,
+                    request_ip=request_ip,
+                    request_url=request_url,
+                    status='failed',
+                    error_message='参数错误'
+                )
                 return send_error('参数错误!')
 
             post_id = spider_scheduler.run_spider_sync(spider_name='post_media_spider', params=args)
+
+            SpiderLogModel.add(
+                post_id=post_id,
+                client_type=client_type,
+                request_ip=request_ip,
+                request_url=request_url,
+                status='success'
+            )
 
             post_detail = PostDetailModel.get_post_by_post_id(post_id)
             post_media = PostMediaModel.find_by_post_id(post_id)
@@ -45,6 +66,13 @@ class SpiderListAPI(Resource):
             }
             return send_success(data=data)
         except Exception as e:
+            SpiderLogModel.add(
+                client_type=client_type,
+                request_ip=request_ip,
+                request_url=request_url,
+                status='failed',
+                error_message=str(e)
+            )
             return send_server_error(message=str(e))
 
     def get(self):
