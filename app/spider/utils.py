@@ -34,7 +34,7 @@ def validate_xhs_url(url):
     try:
         parsed_url = urlparse(url)
         # 检查域名是否为小红书相关域名
-        valid_domains = ['xiaohongshu.com', 'xhslink.com', 'xhs.cn']
+        valid_domains = ['xiaohongshu.com', 'xhslink.com', 'xhslink.cn', 'xhs.cn']
         return any(domain in parsed_url.netloc for domain in valid_domains)
     except Exception as e:
         log.error(f"URL验证异常: {e}")
